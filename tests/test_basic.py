@@ -102,7 +102,6 @@ class TestBasic(object):
             invalidconn.connect("test", "test")
             pytest.fail("shouldn't happen")
         except stomp.exception.ConnectFailedException:
-            pass  # success!
             ms = monotonic() - ms
             assert ms > 5.0, "connection timeout should have been at least 5 seconds"
 

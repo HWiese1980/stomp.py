@@ -212,4 +212,4 @@ class StompConnection12(BaseConnection, Protocol12):
 
     @staticmethod
     def is_eol(c):
-        return c == b"\x0a" or c == b"\x0d\x0a"
+        return c in [b"\x0a", b"\x0d\x0a"]

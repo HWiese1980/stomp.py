@@ -154,12 +154,11 @@ class StubStompServer(object):
         logging.info("Connection stopped")
 
     def get_next_frame(self):
-        if len(self.frames) > 0:
-            rtn = self.frames[0]
-            del self.frames[0]
-            return rtn
-        else:
+        if len(self.frames) <= 0:
             return ''
+        rtn = self.frames[0]
+        del self.frames[0]
+        return rtn
 
     def add_frame(self, frame):
         self.frames.append(frame)
@@ -209,7 +208,7 @@ class StubStdout(object):
             pytest.fail("No expectations - actual '%s'" % txt)
             return
 
-        for x in range(0, len(self.expects)):
+        for x in range(len(self.expects)):
             chk = self.expects[x]
             if chk.match(txt):
                 del self.expects[x]

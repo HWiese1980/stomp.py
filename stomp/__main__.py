@@ -251,10 +251,7 @@ class StompCLI(Cmd, ConnectionListener):
             self.__error("Already subscribed to %s" % name)
             return
 
-        ack_mode = "auto"
-        if len(args) >= 2:
-            ack_mode = args[1]
-
+        ack_mode = args[1] if len(args) >= 2 else "auto"
         sid = self.__subscription_id
         self.__subscription_id += 1
 

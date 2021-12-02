@@ -151,7 +151,7 @@ _HEADER_ESCAPES = {
     ":": "\\c",
     "\\": "\\\\",
 }
-_HEADER_UNESCAPES = dict((value, key) for (key, value) in _HEADER_ESCAPES.items())
+_HEADER_UNESCAPES = {value: key for (key, value) in _HEADER_ESCAPES.items()}
 
 
 def _unescape_header(matchobj):
