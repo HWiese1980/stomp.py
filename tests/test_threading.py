@@ -46,7 +46,7 @@ class TestThreading(object):
         self.clients = 20
         self.threads = []
         self.runfor = 20
-        for i in range(0, self.clients):
+        for i in range(self.clients):
             t = threading.Thread(name="client %s" % i,
                                  target=self.make_sender(i))
             t.setDaemon(1)

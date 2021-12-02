@@ -16,29 +16,31 @@ class TransformationListener(TestListener):
         self.message = None
 
     def on_before_message(self, frame):
-        if "transformation" in frame.headers:
-            trans_type = frame.headers["transformation"]
-            if trans_type != "jms-map-xml":
-                return
+        if "transformation" not in frame.headers:
+            return
+        trans_type = frame.headers["transformation"]
+        if trans_type != "jms-map-xml":
+            return
 
-            try:
-                entries = {}
-                doc = xml.dom.minidom.parseString(frame.body)
-                root_elem = doc.documentElement
-                for entryElem in root_elem.getElementsByTagName("entry"):
-                    pair = []
-                    for node in entryElem.childNodes:
-                        if not isinstance(node, xml.dom.minidom.Element):
-                            continue
-                        pair.append(node.firstChild.nodeValue)
-                    assert len(pair) == 2
-                    entries[pair[0]] = pair[1]
-                frame.body = entries
-            except Exception:
-                #
-                # unable to parse message. return original
-                #
-                traceback.print_exc()
+        try:
+            entries = {}
+            doc = xml.dom.minidom.parseString(frame.body)
+            root_elem = doc.documentElement
+            for entryElem in root_elem.getElementsByTagName("entry"):
+                pair = [
+                    node.firstChild.nodeValue
+                    for node in entryElem.childNodes
+                    if isinstance(node, xml.dom.minidom.Element)
+                ]
+
+                assert len(pair) == 2
+                entries[pair[0]] = pair[1]
+            frame.body = entries
+        except Exception:
+            #
+            # unable to parse message. return original
+            #
+            traceback.print_exc()
 
     def on_message(self, frame):
         TestListener.on_message(self, frame)

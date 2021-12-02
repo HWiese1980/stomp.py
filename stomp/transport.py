@@ -333,10 +333,7 @@ class BaseTransport(stomp.listener.Publisher):
 
         :param float timeout: how long to wait, in seconds
         """
-        if timeout is not None:
-            wait_time = timeout / 10.0
-        else:
-            wait_time = None
+        wait_time = timeout / 10.0 if timeout is not None else None
         with self.__connect_wait_condition:
             while self.running and not self.is_connected() and not self.connection_error:
                 self.__connect_wait_condition.wait(wait_time)
@@ -356,10 +353,7 @@ class BaseTransport(stomp.listener.Publisher):
                         frames = self.__read()
 
                         for frame in frames:
-                            if self.__is_eol(frame):
-                                f = HEARTBEAT_FRAME
-                            else:
-                                f = parse_frame(frame)
+                            f = HEARTBEAT_FRAME if self.__is_eol(frame) else parse_frame(frame)
                             if f is None:
                                 continue
                             if self.__auto_decode:
@@ -432,43 +426,38 @@ class BaseTransport(stomp.listener.Publisher):
             while True:
                 pos = self.__recvbuf.find(b"\x00")
 
-                if pos >= 0:
-                    frame = self.__recvbuf[0:pos]
-                    preamble_end_match = PREAMBLE_END_RE.search(frame)
-                    if preamble_end_match:
-                        preamble_end = preamble_end_match.start()
-                        content_length_match = BaseTransport.__content_length_re.search(frame[0:preamble_end])
-                        if content_length_match:
-                            content_length = int(content_length_match.group("value"))
-                            content_offset = preamble_end_match.end()
-                            frame_size = content_offset + content_length
-                            if frame_size > len(frame):
-                                #
-                                # Frame contains NUL bytes, need to read more
-                                #
-                                if frame_size < len(self.__recvbuf):
-                                    pos = frame_size
-                                    frame = self.__recvbuf[0:pos]
-                                else:
-                                    #
-                                    # Haven't read enough data yet, exit loop and wait for more to arrive
-                                    #
-                                    break
-                    result.append(frame)
-                    pos += 1
-                    #
-                    # Ignore optional EOLs at end of frame
-                    #
-                    while 1:
-                        if self.__is_eol(self.__recvbuf[pos:pos + 1]):
-                            pos += 1
-                        elif self.__is_eol(self.__recvbuf[pos:pos + 2]):
-                            pos += 2
-                        else:
-                            break
-                    self.__recvbuf = self.__recvbuf[pos:]
-                else:
+                if pos < 0:
                     break
+                frame = self.__recvbuf[0:pos]
+                preamble_end_match = PREAMBLE_END_RE.search(frame)
+                if preamble_end_match:
+                    preamble_end = preamble_end_match.start()
+                    content_length_match = BaseTransport.__content_length_re.search(frame[0:preamble_end])
+                    if content_length_match:
+                        content_length = int(content_length_match.group("value"))
+                        content_offset = preamble_end_match.end()
+                        frame_size = content_offset + content_length
+                        if frame_size > len(frame):
+                            if frame_size >= len(self.__recvbuf):
+                                #
+                                # Haven't read enough data yet, exit loop and wait for more to arrive
+                                #
+                                break
+                            pos = frame_size
+                            frame = self.__recvbuf[0:pos]
+                result.append(frame)
+                pos += 1
+                #
+                # Ignore optional EOLs at end of frame
+                #
+                while 1:
+                    if self.__is_eol(self.__recvbuf[pos:pos + 1]):
+                        pos += 1
+                    elif self.__is_eol(self.__recvbuf[pos:pos + 2]):
+                        pos += 2
+                    else:
+                        break
+                self.__recvbuf = self.__recvbuf[pos:]
         return result
 
 
@@ -556,15 +545,16 @@ class Transport(BaseTransport):
             for host_and_port in sorted_host_and_ports:
                 if is_localhost(host_and_port) == 1:
                     port = host_and_port[1]
-                    if not (("127.0.0.1", port) in sorted_host_and_ports or (
-                    "localhost", port) in sorted_host_and_ports):
+                    if ("127.0.0.1", port) not in sorted_host_and_ports and (
+                        "localhost",
+                        port,
+                    ) not in sorted_host_and_ports:
                         loopback_host_and_ports.append(("127.0.0.1", port))
 
         #
         # Assemble the final, possibly sorted list of (host, port) tuples
         #
-        self.__host_and_ports = []
-        self.__host_and_ports.extend(loopback_host_and_ports)
+        self.__host_and_ports = list(loopback_host_and_ports)
         self.__host_and_ports.extend(sorted_host_and_ports)
         self.__bind_host_port = bind_host_port
 
@@ -642,16 +632,15 @@ class Transport(BaseTransport):
         """
         :param bytes encoded_frame:
         """
-        if self.socket is not None:
-            try:
-                with self.__socket_semaphore:
-                    self.socket.sendall(encoded_frame)
-            except Exception:
-                _, e, _ = sys.exc_info()
-                logging.error("Error sending frame", exc_info=True)
-                raise e
-        else:
+        if self.socket is None:
             raise exception.NotConnectedException()
+        try:
+            with self.__socket_semaphore:
+                self.socket.sendall(encoded_frame)
+        except Exception:
+            _, e, _ = sys.exc_info()
+            logging.error("Error sending frame", exc_info=True)
+            raise e
 
     def receive(self):
         """

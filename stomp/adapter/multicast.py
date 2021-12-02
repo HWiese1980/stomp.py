@@ -163,13 +163,12 @@ class MulticastConnection(BaseConnection, Protocol12):
         elif cmd == CMD_ABORT:
             trans = headers["transaction"]
             del self.transactions[trans]
-        else:
-            if "transaction" in headers:
-                trans = headers["transaction"]
-                if trans not in self.transactions:
-                    self.transport.notify("error", Frame(None, {}, "Transaction %s not started" % trans))
-                    return
-                else:
-                    self.transactions[trans].append(frame)
+        elif "transaction" in headers:
+            trans = headers["transaction"]
+            if trans not in self.transactions:
+                self.transport.notify("error", Frame(None, {}, "Transaction %s not started" % trans))
+                return
             else:
-                self.transport.transmit(frame)
+                self.transactions[trans].append(frame)
+        else:
+            self.transport.transmit(frame)
